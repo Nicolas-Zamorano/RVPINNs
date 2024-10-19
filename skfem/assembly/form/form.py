@@ -8,10 +8,12 @@ from inspect import signature
 
 import numpy as np
 from numpy import ndarray
+import torch
 
 from ...element import DiscreteField
 from .coo_data import COOData
 
+torch.set_default_dtype(torch.float64)
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +77,18 @@ class Form:
         logger.info("Assembling '{}'.".format(self.form.__name__))
         out = (COOData(*self._assemble(*args, **kwargs))  # type: ignore
                .todefault())
+        logger.info("Assembling finished.")
+        return out
+    
+    def assemble_to_torch(self, *args, **kwargs) -> Any:
+        assert self.form is not None
+        logger.info("Assembling '{}'.".format(self.form.__name__))
+        
+        # rows, data, size = self._assemble_to_torch(*args, **kwargs)
+        # out = torch.sparse_coo_tensor(torch.stack((rows,torch.zeros_like(rows)),dim=-1).T, data, size+(1,), dtype=torch.float64).coalesce()
+        
+        out = self._assemble_to_torch(*args, **kwargs)
+        
         logger.info("Assembling finished.")
         return out
 
