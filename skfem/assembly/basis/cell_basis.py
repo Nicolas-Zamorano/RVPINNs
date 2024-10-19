@@ -3,10 +3,11 @@ import sys
 from typing import Callable, Optional, Tuple, Any
 
 import numpy as np
-from numpy import ndarray
+from numpy import ndarray, array
 from skfem.element import DiscreteField, Element
 from skfem.mapping import Mapping
 from skfem.mesh import Mesh
+import torch
 
 if "pyodide" in sys.modules:
     from scipy.sparse.coo import coo_matrix
@@ -47,7 +48,8 @@ class CellBasis(AbstractBasis):
                  elements: Optional[Any] = None,
                  quadrature: Optional[Tuple[ndarray, ndarray]] = None,
                  dofs: Optional[Dofs] = None,
-                 disable_doflocs: bool = False):
+                 disable_doflocs: bool = False,
+                 use_torch: bool = False):
         """Combine :class:`~skfem.mesh.Mesh` and
         :class:`~skfem.element.Element` into a set of precomputed global basis
         functions.
@@ -100,15 +102,27 @@ class CellBasis(AbstractBasis):
 
         self.basis = [self.elem.gbasis(self.mapping, self.X, j, tind=self.tind)
                       for j in range(self.Nbfun)]
-
+        
         self.dx = (np.abs(self.mapping.detDF(self.X, tind=self.tind))
                    * np.broadcast_to(self.W, (self.nelems, self.W.shape[-1])))
+        
+        if use_torch == True:
+            self.use_torch = use_torch
+            self.basis_torch = torch.Tensor(array(self.basis)).squeeze(1)
+            self.dx_torch = torch.Tensor(self.dx)
+            self.element_dofs_torch = torch.tensor(self.element_dofs, dtype = torch.long)
+            
         logger.info("Initializing finished.")
 
     def default_parameters(self):
         """Return default parameters for `~skfem.assembly.asm`."""
         return {'x': self.global_coordinates(),
                 'h': self.mesh_parameters()}
+    
+    def default_parameters_torch(self):
+        """Return default parameters for `~skfem.assembly.asm`. in torch """
+        return {'x': torch.Tensor(self.global_coordinates()),
+                'h': torch.Tensor(self.mesh_parameters())}
 
     def global_coordinates(self) -> DiscreteField:
         return DiscreteField(self.mapping.F(self.X, tind=self.tind))

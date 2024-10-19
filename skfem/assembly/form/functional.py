@@ -2,6 +2,7 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 from numpy import ndarray
+import torch
 
 from .form import Form, FormExtraParams
 from ..basis import AbstractBasis
@@ -59,3 +60,40 @@ class Functional(Form):
             (),
             (),
         )
+    
+    def _assemble_to_torch(self,
+                  ubasis: AbstractBasis,
+                  vbasis: Optional[AbstractBasis] = None,
+                  **kwargs) -> Tuple[ndarray,
+                                     ndarray,
+                                     Tuple[()],
+                                     Tuple[()]]:
+        """Evaluate the functional to a scalar.
+
+        Parameters
+        ----------
+        ubasis
+            The :class:`~skfem.assembly.Basis` for filling the default
+            parameters of ``w`` and integrating over the domain.
+        **kwargs
+            Any additional keyword arguments are appended to ``w``.
+
+        """
+        assert vbasis is None
+        vbasis = ubasis
+        
+        w = FormExtraParams({
+            **vbasis.default_parameters_torch(),
+            **self._normalize_asm_kwargs(kwargs, ubasis),
+        })
+        
+        data = self._kernel_torch(w, vbasis.dx_torch)
+        return data
+    
+    def _kernel_torch(self,
+                      w: Dict[str, DiscreteField],
+                      dx: ndarray) -> ndarray:
+        if self.form is None:
+            raise Exception("Form function handle not defined.")
+        xd = self.form(w) * dx
+        return torch.sum(xd, dim = -1)

@@ -5,6 +5,7 @@ from itertools import product
 
 import numpy as np
 from numpy import ndarray
+import torch
 
 from ..basis import Basis
 from .coo_data import COOData
@@ -144,6 +145,29 @@ class BilinearForm(Form):
         assert self.form is not None
         logger.info("Assembling '{}'.".format(self.form.__name__))
         mat = COOData._assemble_scipy_csr(*self._assemble(*args, **kwargs))
+        logger.info("Assembling finished.")
+        return mat
+    
+    def assemble_to_torch(self, *args, **kwargs):
+        """Assemble the bilinear form into a sparse matrix.
+
+        Parameters
+        ----------
+        ubasis
+            The :class:`~skfem.assembly.Basis` for ``u``.
+        vbasis
+            Optionally, specify a different :class:`~skfem.assembly.Basis`
+            for ``v``.
+        **kwargs
+            Any additional keyword arguments are appended to ``w``.
+
+        """
+        assert self.form is not None
+        logger.info("Assembling '{}'.".format(self.form.__name__))
+        
+        rows, data, size, size_local = self._assemble(*args, **kwargs)
+        
+        mat = torch.sparse_coo_tensor(torch.from_numpy(rows), torch.Tensor(data), size, dtype = torch.float64).coalesce()
         logger.info("Assembling finished.")
         return mat
 

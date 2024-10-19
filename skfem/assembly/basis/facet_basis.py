@@ -2,13 +2,14 @@ import logging
 from typing import Callable, Optional, Tuple, Any
 
 import numpy as np
-from numpy import ndarray
+from numpy import ndarray, array
 from skfem.element import (BOUNDARY_ELEMENT_MAP, DiscreteField, Element,
                            ElementHex0, ElementQuad0, ElementTetP0,
                            ElementTriP0)
 from skfem.mapping import Mapping
 from skfem.mesh import Mesh, MeshHex, MeshLine, MeshQuad, MeshTet, MeshTri
 from skfem.generic_utils import OrientedBoundary, deprecated
+import torch
 
 from .abstract_basis import AbstractBasis
 from .cell_basis import CellBasis
@@ -30,7 +31,8 @@ class FacetBasis(AbstractBasis):
                  facets: Optional[Any] = None,
                  dofs: Optional[Dofs] = None,
                  side: int = 0,
-                 disable_doflocs: bool = False):
+                 disable_doflocs: bool = False,
+                 use_torch: bool = True):
         """Precomputed global basis on boundary facets.
 
         Parameters
@@ -113,6 +115,13 @@ class FacetBasis(AbstractBasis):
 
         self.dx = (np.abs(self.mapping.detDG(self.X, find=self.find))
                    * np.broadcast_to(self.W, (self.nelems, self.W.shape[-1])))
+        
+        if use_torch == True:
+            self.use_torch = use_torch
+            self.basis_torch = torch.Tensor(array(self.basis)).squeeze(1)
+            self.dx_torch = torch.Tensor(self.dx)
+            self.element_dofs_torch = torch.tensor(self.element_dofs, dtype = torch.long)
+        
         logger.info("Initializing finished.")
 
     def default_parameters(self):
@@ -122,6 +131,11 @@ class FacetBasis(AbstractBasis):
             'h': self.mesh_parameters(),
             'n': self.normals,
         }
+    
+    def default_parameters_torch(self):
+        """Return default parameters for `~skfem.assembly.asm`. in torch """
+        return {'x': torch.Tensor(self.global_coordinates()),
+                'h': torch.Tensor(self.mesh_parameters())}
 
     def global_coordinates(self) -> DiscreteField:
         return DiscreteField(self.mapping.G(self.X, find=self.find))
