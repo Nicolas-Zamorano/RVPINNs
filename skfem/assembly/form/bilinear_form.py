@@ -169,7 +169,7 @@ class BilinearForm(Form):
         
         mat = torch.sparse_coo_tensor(torch.from_numpy(rows), torch.Tensor(data), size, dtype = torch.float64).coalesce()
         logger.info("Assembling finished.")
-        return mat
+        return mat.to_dense()
 
     def _kernel(self, u, v, w, dx):
         return np.sum(self.form(*u, *v, w) * dx, axis=1)
