@@ -65,6 +65,7 @@ class LinearForm(Form):
         w = FormExtraParams({
             **vbasis.default_parameters_torch(),
             **self._normalize_asm_kwargs(kwargs, ubasis),
+            "grad": torch.Tensor([base[0].grad for base in basis])
         })
         
         sz = vbasis.Nbfun * nt
